@@ -1,0 +1,67 @@
+Bojun Wag
+COMP 221 Project 5: Malloc Dynamic Memory Allocator
+4/3/2014
+
+DESCRIPTION
+
+My memory allocator uses a explicit free double linked list to store all free
+blocks, header and boundary tags to find physically addressed next block and
+previous block for coalescing, and another two words of pointer in free blocks
+to store addresses of precedent and successive block in the double linked list.
+This allocator provides three basic memory management functions. mm_malloc, 
+mm_free, mm_realloc. mm_malloc allocates a block that can store size bytes from
+heap and return the pointer pointing to that block. mm_free frees the block
+pointed by ptr, which must be an returned pointer of mm_alloc or mm_realloc.
+mm_realloc reallocates the block "ptr" to a block with at least "size" bytes of
+payload.
+
+DESIGN
+
+This memory allocator uses a global static pointer to point to the starting
+block of explicit free double linked list. This list uses LIFO principle when
+a new free block is inserted to the list, it is always added to the beginning
+of the list.
+This memory allocator starts working by calling mm_init and explicit free list
+is initialized to empty, then extend_heap is called where the first big free
+block is added to the heap as well as the free list. Extend_heap is called also
+every time when no fit is found for an mm_malloc request. The extended block
+is free so it is inserted to the start of free list. When the allocator starts
+to allocate "size" bytes of memory, it first checks if there is a fit block in
+the free list, by starting at the global pointer pointing to free list first 
+element and going through every successive element until the end of list is met.
+If there is a fit, allocate the whole block if remainder is smaller than min
+word size, then slice out this block out of free list, otherwise split the
+whole block and only allocate first part of it and update free list. If no fit
+was found, call extend heap and then allocate. When allocator frees a block, if
+there are free blocks physically adjacent to it, coalesce them and update free
+list. when allocator reallocates a block, it firstly check if the following
+block is free. If so, slice the following block out of free list and change the
+size of current block accordingly. Otherwise, just mm_malloc another block and
+copy old size of bytes over to new block.
+For better performance of certain traces, I use another two global variables
+to store last failed size in find_fit and existance of free or extend_heap 
+after last find_fit failure. Because free and extend_heap are the only ways of
+not failing in the same sized find_fit again. In other words, if there is no
+freeing or extending_heap happening since the last failure of find_fit for size
+then there is no way of not failing again using the same size. With this extra
+logic implemented, find_fit saves a lot of time on certain traces. 
+
+
+TESTING STRATEGY
+
+printlist() is a function that prints out explicit free list nicely. I print
+out the entire free list during debugging with short traces to exam the
+behaviours of program after each malloc, free, coalesce, and extend_heap. 
+In checkheap(), heap's consistency checking, besides basic checks, I also go
+through the entire free list and check each block in the list if it is 
+unallocated. If some block in free list is allocated, then this means there
+is an inconsistency in the heap. Checkheap also checks if every block has size
+greater than or equal to minimum allowed size and if size is multiple of 8. 
+In short1-bal.rep and short2-bal.rep, I could compare explicit free list with 
+expected behaviour step by step. and during debugging, checkheap is also called
+after malloc, free, coalesce and extend_heap.
+After I got correct behaviour on short1-bal.rep and short2-bal.rep, I move on 
+testing on individual traces of provided traces until every provided traces are
+passes including reallocations. Since provided traces contain all the traces 
+that are required to be supported by this allocator, achieving correctness on
+all provided traces complete the testing.
